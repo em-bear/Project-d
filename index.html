@@ -1,203 +1,158 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Touch Grid Editor</title>
-
-<style>
-body {
-    margin: 0;
-    background: #111;
-    color: white;
-    font-family: sans-serif;
-    overflow: hidden;
-}
-
-button {
-    font-size: 18px;
-    padding: 8px 14px;
-    margin: 4px;
-}
-
-#startScreen, #editor {
-    width: 100vw;
-    height: 100vh;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-#topBar, #zoomBar {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-
-.color {
-    width: 36px;
-    height: 36px;
-    margin: 4px;
-    border: 2px solid #444;
-}
-
-#grid {
-    display: grid;
-    grid-template-columns: repeat(32, 1fr);
-    grid-template-rows: repeat(32, 1fr);
-    width: 90vmin;
-    height: 90vmin;
-    touch-action: none;
-}
-
-.cell {
-    border: 1px solid #222;
-    background: #000;
-}
-
-.hidden {
-    display: none;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Touch Grid Editor</title>
+    <style>
+        body {
+            margin: 0; background: #111; color: white;
+            font-family: sans-serif; overflow: hidden;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        #startScreen, #editor {
+            width: 100vw; height: 100vh; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        #topBar, #zoomBar, #bottomBar { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin: 5px; }
+        .color { width: 30px; height: 30px; border: 1px solid #555; cursor: pointer; }
+        .active { border: 2px solid white; transform: scale(1.1); }
+        #grid {
+            display: grid; grid-template-columns: repeat(32, 1fr);
+            width: 85vmin; height: 85vmin; background: #000;
+            touch-action: none; border: 1px solid #333;
+        }
+        .cell { border: 0.1px solid #222; }
+        .hidden { display: none; }
+        button { padding: 10px 15px; font-weight: bold; cursor: pointer; }
+    </style>
 </head>
-
 <body>
 
 <div id="startScreen">
-    <button id="newBtn">NEW</button>
+    <button id="newBtn" style="font-size: 2em; padding: 20px 40px;">NEW</button>
 </div>
 
 <div id="editor">
-
     <div id="topBar"></div>
-
     <div id="zoomBar">
-        <button onclick="showAll()">ALL</button>
-        <button onclick="zoom(0)">Z1</button>
-        <button onclick="zoom(1)">Z2</button>
-        <button onclick="zoom(2)">Z3</button>
-        <button onclick="zoom(3)">Z4</button>
-        <button onclick="zoom(4)">Z5</button>
-        <button onclick="zoom(5)">Z6</button>
-        <button onclick="zoom(6)">Z7</button>
-        <button onclick="zoom(7)">Z8</button>
+        <button onclick="zoom(-1)">ALL</button>
+        <script>
+            for(let i=1; i<=8; i++) document.write(`<button onclick="zoom(${i-1})">Z${i}</button>`);
+        </script>
     </div>
-
     <div id="grid"></div>
-
-    <div>
-        <button id="saveBtn">SAVE</button>
-        <button id="doneBtn">DONE</button>
+    <div id="bottomBar">
+        <button id="saveBtn" style="background: #28a745; color: white;">SAVE</button>
+        <button id="doneBtn" style="background: #007bff; color: white;">DONE</button>
     </div>
-
 </div>
 
 <script>
-const colors = [
- "red","green","blue","yellow","orange","purple",
- "pink","cyan","lime","brown","white","gray",
- "navy","teal","magenta"
-];
+    const colors = ["red","green","blue","yellow","orange","purple","pink","cyan","lime","brown","white","gray","navy","teal","magenta"];
+    let selectedColor = "red";
+    let coordinates = new Map(); // Kulcs: "x-y", Érték: szín
+    let isDrawing = false;
 
-let selectedColor = null;
-let data = [];
-let isDrawing = false;
+    const grid = document.getElementById("grid");
+    const topBar = document.getElementById("topBar");
 
-const startScreen = document.getElementById("startScreen");
-const editor = document.getElementById("editor");
-const grid = document.getElementById("grid");
-const topBar = document.getElementById("topBar");
-
-document.getElementById("newBtn").onclick = () => {
-    data = [];
-    grid.querySelectorAll(".cell").forEach(c => c.style.background = "#000");
-    startScreen.style.display = "none";
-    editor.style.display = "flex";
-};
-
-colors.forEach(c => {
-    const d = document.createElement("div");
-    d.className = "color";
-    d.style.background = c;
-    d.onclick = () => selectedColor = c;
-    topBar.appendChild(d);
-});
-
-for (let y = 0; y < 32; y++) {
-    for (let x = 0; x < 32; x++) {
-        const cell = document.createElement("div");
-        cell.className = "cell";
-        cell.dataset.x = x;
-        cell.dataset.y = y;
-
-        const paint = () => {
-            const key = `${x}-${y}`;
-            const i = data.findIndex(d => d.startsWith(key));
-            if (i !== -1) {
-                data.splice(i,1);
-                cell.style.background = "#000";
-            } else if (selectedColor) {
-                data.push(`${key} ${selectedColor}`);
-                cell.style.background = selectedColor;
-            }
+    // Színpaletta
+    colors.forEach(c => {
+        const d = document.createElement("div");
+        d.className = "color" + (c === selectedColor ? " active" : "");
+        d.style.background = c;
+        d.onclick = () => {
+            document.querySelectorAll(".color").forEach(el => el.classList.remove("active"));
+            d.classList.add("active");
+            selectedColor = c;
         };
-
-        cell.onpointerdown = () => { isDrawing = true; paint(); };
-        cell.onpointerenter = () => { if (isDrawing) paint(); };
-        cell.onpointerup = () => isDrawing = false;
-
-        grid.appendChild(cell);
-    }
-}
-document.body.onpointerup = () => isDrawing = false;
-
-function zoom(index) {
-    const col = index % 4;
-    const row = Math.floor(index / 4);
-
-    const xMin = col * 8;
-    const xMax = xMin + 8;
-    const yMin = row * 16;
-    const yMax = yMin + 16;
-
-    document.querySelectorAll(".cell").forEach(c => {
-        const x = +c.dataset.x;
-        const y = +c.dataset.y;
-        c.classList.toggle(
-            "hidden",
-            !(x >= xMin && x < xMax && y >= yMin && y < yMax)
-        );
+        topBar.appendChild(d);
     });
 
-    grid.style.gridTemplateColumns = "repeat(8, 1fr)";
-    grid.style.gridTemplateRows = "repeat(16, 1fr)";
-}
+    // Rács generálása (32x32 = 1024)
+    for (let y = 0; y < 32; y++) {
+        for (let x = 0; x < 32; x++) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.id = `c-${x}-${y}`;
+            
+            const handlePaint = (e) => {
+                const key = `${x}-${y}`;
+                if (coordinates.has(key)) {
+                    coordinates.delete(key);
+                    cell.style.background = "#000";
+                } else {
+                    coordinates.set(key, selectedColor);
+                    cell.style.background = selectedColor;
+                }
+            };
 
-function showAll() {
-    document.querySelectorAll(".cell").forEach(c => c.classList.remove("hidden"));
-    grid.style.gridTemplateColumns = "repeat(32, 1fr)";
-    grid.style.gridTemplateRows = "repeat(32, 1fr)";
-}
+            cell.onpointerdown = (e) => { 
+                isDrawing = true; 
+                cell.releasePointerCapture(e.pointerId); 
+                handlePaint(e); 
+            };
+            cell.onpointerenter = (e) => { if(isDrawing) handlePaint(e); };
+            grid.appendChild(cell);
+        }
+    }
 
-function download(name, text) {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([text], {type:"text/plain"}));
-    a.download = name;
-    a.click();
-}
+    window.onpointerup = () => isDrawing = false;
 
-document.getElementById("saveBtn").onclick = () => {
-    download("coordinates.txt", data.join("\n"));
-    editor.style.display = "none";
-    startScreen.style.display = "flex";
-};
+    // Zoom funkció: 1024 kocka / 8 rész = 128 kocka részenként
+    // Elosztás: 4 oszlop (8 széles) x 2 sor (16 magas)
+    function zoom(part) {
+        const cells = document.querySelectorAll(".cell");
+        if (part === -1) {
+            cells.forEach(c => c.classList.remove("hidden"));
+            grid.style.gridTemplateColumns = "repeat(32, 1fr)";
+        } else {
+            const colIdx = part % 4; // 0, 1, 2, 3
+            const rowIdx = Math.floor(part / 4); // 0, 1
+            const xMin = colIdx * 8;
+            const xMax = xMin + 8;
+            const yMin = rowIdx * 16;
+            const yMax = yMin + 16;
 
-document.getElementById("doneBtn").onclick = () => {
-    download("done.txt", "done");
-};
+            cells.forEach(c => {
+                const [_, x, y] = c.id.split('-').map(Number);
+                c.classList.toggle("hidden", !(x >= xMin && x < xMax && y >= yMin && y < yMax));
+            });
+            grid.style.gridTemplateColumns = "repeat(8, 1fr)";
+        }
+    }
 
-startScreen.style.display = "flex";
+    // Fájl mentés
+    function download(filename, text) {
+        const blob = new Blob([text], {type: "text/plain"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+    }
+
+    document.getElementById("newBtn").onclick = () => {
+        coordinates.clear();
+        document.querySelectorAll(".cell").forEach(c => c.style.background = "#000");
+        document.getElementById("startScreen").style.display = "none";
+        document.getElementById("editor").style.display = "flex";
+        zoom(-1);
+    };
+
+    document.getElementById("saveBtn").onclick = () => {
+        let output = "";
+        coordinates.forEach((color, coord) => { output += `${coord} ${color}\n`; });
+        download("coordinates.txt", output);
+        document.getElementById("editor").style.display = "none";
+        document.getElementById("startScreen").style.display = "flex";
+    };
+
+    document.getElementById("doneBtn").onclick = () => {
+        download("done.txt", "done");
+    };
+
+    document.getElementById("startScreen").style.display = "flex";
 </script>
 
 </body>
