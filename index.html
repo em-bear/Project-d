@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Touch Grid Editor</title>
+
+<style>
+body {
+    margin: 0;
+    background: #111;
+    color: white;
+    font-family: sans-serif;
+    overflow: hidden;
+}
+
+button {
+    font-size: 18px;
+    padding: 8px 14px;
+    margin: 4px;
+}
+
+#startScreen, #editor {
+    width: 100vw;
+    height: 100vh;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#topBar, #zoomBar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.color {
+    width: 36px;
+    height: 36px;
+    margin: 4px;
+    border: 2px solid #444;
+}
+
+#grid {
+    display: grid;
+    grid-template-columns: repeat(32, 1fr);
+    grid-template-rows: repeat(32, 1fr);
+    width: 90vmin;
+    height: 90vmin;
+    touch-action: none;
+}
+
+.cell {
+    border: 1px solid #222;
+    background: #000;
+}
+
+.hidden {
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="startScreen">
+    <button id="newBtn">NEW</button>
+</div>
+
+<div id="editor">
+
+    <div id="topBar"></div>
+
+    <div id="zoomBar">
+        <button onclick="showAll()">ALL</button>
+        <button onclick="zoom(0)">Z1</button>
+        <button onclick="zoom(1)">Z2</button>
+        <button onclick="zoom(2)">Z3</button>
+        <button onclick="zoom(3)">Z4</button>
+        <button onclick="zoom(4)">Z5</button>
+        <button onclick="zoom(5)">Z6</button>
+        <button onclick="zoom(6)">Z7</button>
+        <button onclick="zoom(7)">Z8</button>
+    </div>
+
+    <div id="grid"></div>
+
+    <div>
+        <button id="saveBtn">SAVE</button>
+        <button id="doneBtn">DONE</button>
+    </div>
+
+</div>
+
+<script>
+const colors = [
+ "red","green","blue","yellow","orange","purple",
+ "pink","cyan","lime","brown","white","gray",
+ "navy","teal","magenta"
+];
+
+let selectedColor = null;
+let data = [];
+let isDrawing = false;
+
+const startScreen = document.getElementById("startScreen");
+const editor = document.getElementById("editor");
+const grid = document.getElementById("grid");
+const topBar = document.getElementById("topBar");
+
+document.getElementById("newBtn").onclick = () => {
+    data = [];
+    grid.querySelectorAll(".cell").forEach(c => c.style.background = "#000");
+    startScreen.style.display = "none";
+    editor.style.display = "flex";
+};
+
+colors.forEach(c => {
+    const d = document.createElement("div");
+    d.className = "color";
+    d.style.background = c;
+    d.onclick = () => selectedColor = c;
+    topBar.appendChild(d);
+});
+
+for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.dataset.x = x;
+        cell.dataset.y = y;
+
+        const paint = () => {
+            const key = `${x}-${y}`;
+            const i = data.findIndex(d => d.startsWith(key));
+            if (i !== -1) {
+                data.splice(i,1);
+                cell.style.background = "#000";
+            } else if (selectedColor) {
+                data.push(`${key} ${selectedColor}`);
+                cell.style.background = selectedColor;
+            }
+        };
+
+        cell.onpointerdown = () => { isDrawing = true; paint(); };
+        cell.onpointerenter = () => { if (isDrawing) paint(); };
+        cell.onpointerup = () => isDrawing = false;
+
+        grid.appendChild(cell);
+    }
+}
+document.body.onpointerup = () => isDrawing = false;
+
+function zoom(index) {
+    const col = index % 4;
+    const row = Math.floor(index / 4);
+
+    const xMin = col * 8;
+    const xMax = xMin + 8;
+    const yMin = row * 16;
+    const yMax = yMin + 16;
+
+    document.querySelectorAll(".cell").forEach(c => {
+        const x = +c.dataset.x;
+        const y = +c.dataset.y;
+        c.classList.toggle(
+            "hidden",
+            !(x >= xMin && x < xMax && y >= yMin && y < yMax)
+        );
+    });
+
+    grid.style.gridTemplateColumns = "repeat(8, 1fr)";
+    grid.style.gridTemplateRows = "repeat(16, 1fr)";
+}
+
+function showAll() {
+    document.querySelectorAll(".cell").forEach(c => c.classList.remove("hidden"));
+    grid.style.gridTemplateColumns = "repeat(32, 1fr)";
+    grid.style.gridTemplateRows = "repeat(32, 1fr)";
+}
+
+function download(name, text) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], {type:"text/plain"}));
+    a.download = name;
+    a.click();
+}
+
+document.getElementById("saveBtn").onclick = () => {
+    download("coordinates.txt", data.join("\n"));
+    editor.style.display = "none";
+    startScreen.style.display = "flex";
+};
+
+document.getElementById("doneBtn").onclick = () => {
+    download("done.txt", "done");
+};
+
+startScreen.style.display = "flex";
+</script>
+
+</body>
+</html>
