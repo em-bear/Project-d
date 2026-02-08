@@ -2,11 +2,12 @@
 <html lang="hu">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Project-D</title>
+<meta name="viewport" content="width=720, height=1280, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Project-D Display</title>
 
 <style>
 * { box-sizing: border-box; touch-action: none; }
+
 body {
     margin: 0;
     background: #000;
@@ -15,99 +16,81 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    height: 100vh;
-}
-
-#startScreen, #editor {
-    display: none;
-    width: 100%;
-    height: 100%;
-    flex-direction: column;
-    align-items: center;
     justify-content: center;
 }
 
+/* FIX kijelző méret */
+#display {
+    width: 720px;
+    height: 1280px;
+    background: black;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Színpaletta */
 #topBar {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 5px;
+    gap: 6px;
+    padding: 6px;
     justify-content: center;
     background: #111;
-    width: 100%;
 }
 
 .color-btn {
-    width: 35px;
-    height: 35px;
+    width: 40px;
+    height: 40px;
     border: 2px solid #444;
     border-radius: 4px;
 }
 
 .color-btn.active {
     border-color: #fff;
-    transform: scale(1.1);
 }
 
-#zoomBar, #controls {
-    display: flex;
-    gap: 5px;
-    margin-bottom: 5px;
-}
-
+/* GRID */
 #grid {
+    flex: 1;
     display: grid;
     grid-template-columns: repeat(32, 1fr);
-    width: 95vw;
-    height: 65vh;
-    margin: 10px 0;
-    border: 1px solid #333;
+    grid-template-rows: repeat(32, 1fr);
 }
 
+/* CELL GOMB */
 .cell {
-    border: 0.1px solid #222;
+    border: 0.2px solid #222;
     background: #000;
 }
 
-.hidden { display: none; }
+/* ALSÓ VEZÉRLŐ */
+#controls {
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+    background: #111;
+}
 
 button {
-    padding: 8px 12px;
-    font-size: 14px;
-    cursor: pointer;
+    padding: 12px 25px;
+    font-size: 16px;
     background: #333;
     color: white;
     border: 1px solid #666;
-}
-
-#newBtn {
-    font-size: 30px;
-    padding: 20px 50px;
-    background: #28a745;
-    border: none;
 }
 </style>
 </head>
 
 <body>
 
-<div id="startScreen">
-    <button id="newBtn" onclick="startNew()">NEW</button>
-</div>
-
-<div id="editor">
+<div id="display">
 
     <div id="topBar"></div>
-
-    <div id="zoomBar">
-        <button onclick="applyZoom(-1)">ALL</button>
-        <div id="zoomButtons"></div>
-    </div>
 
     <div id="grid"></div>
 
     <div id="controls">
-        <button onclick="done()" style="background:#007bff">DONE</button>
+        <button onclick="done()">DONE</button>
     </div>
 
 </div>
@@ -126,36 +109,30 @@ let isTouching = false;
 const topBar = document.getElementById("topBar");
 const grid = document.getElementById("grid");
 
-// Színpaletta
+/* SZÍNGOMBOK */
 colors.forEach(c => {
     const btn = document.createElement("div");
     btn.className = "color-btn";
+    btn.id = "color-" + c;
     btn.style.background = c;
     if (c === selectedColor) btn.classList.add("active");
+
     btn.onclick = () => {
         document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         selectedColor = c;
     };
+
     topBar.appendChild(btn);
 });
 
-// Zoom gombok
-const zoomButtons = document.getElementById("zoomButtons");
-for (let i = 0; i < 8; i++) {
-    const b = document.createElement("button");
-    b.textContent = "Z" + (i + 1);
-    b.onclick = () => applyZoom(i);
-    zoomButtons.appendChild(b);
-}
-
-// Grid (32x32)
+/* GRID GOMBOK 32x32 */
 for (let y = 0; y < 32; y++) {
     for (let x = 0; x < 32; x++) {
+
         const cell = document.createElement("div");
         cell.className = "cell";
-        cell.dataset.x = x;
-        cell.dataset.y = y;
+        cell.id = `cell-${y}-${x}`;
 
         const paint = () => {
             const key = `${x}-${y}`;
@@ -173,6 +150,7 @@ for (let y = 0; y < 32; y++) {
             cell.releasePointerCapture(e.pointerId);
             paint();
         };
+
         cell.onpointerenter = () => {
             if (isTouching) paint();
         };
@@ -180,62 +158,21 @@ for (let y = 0; y < 32; y++) {
         grid.appendChild(cell);
     }
 }
+
 window.onpointerup = () => isTouching = false;
 
-// NEW
-function startNew() {
-    drawingData.clear();
-    document.querySelectorAll(".cell").forEach(c => c.style.background = "#000");
-    document.getElementById("startScreen").style.display = "none";
-    document.getElementById("editor").style.display = "flex";
-    applyZoom(-1);
-}
-
-// ZOOM
-function applyZoom(part) {
-    const cells = document.querySelectorAll(".cell");
-
-    if (part === -1) {
-        cells.forEach(c => c.classList.remove("hidden"));
-        grid.style.gridTemplateColumns = "repeat(32, 1fr)";
-        return;
-    }
-
-    const col = part % 4;
-    const row = Math.floor(part / 4);
-    const xMin = col * 8, xMax = xMin + 8;
-    const yMin = row * 16, yMax = yMin + 16;
-
-    cells.forEach(c => {
-        const x = +c.dataset.x;
-        const y = +c.dataset.y;
-        c.classList.toggle("hidden", !(x >= xMin && x < xMax && y >= yMin && y < yMax));
-    });
-
-    grid.style.gridTemplateColumns = "repeat(8, 1fr)";
-}
-
-// LETÖLTÉS
-function download(filename, text) {
-    const a = document.createElement("a");
-    a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(text);
-    a.download = filename;
-    a.click();
-}
-
-// DONE = coordinates.txt letöltés + vissza NEW-re
+/* EXPORT */
 function done() {
     let out = "";
     drawingData.forEach((color, coord) => {
         out += `${coord} ${color}\n`;
     });
-    download("coordinates.txt", out);
 
-    document.getElementById("editor").style.display = "none";
-    document.getElementById("startScreen").style.display = "flex";
+    const a = document.createElement("a");
+    a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(out);
+    a.download = "coordinates.txt";
+    a.click();
 }
-
-document.getElementById("startScreen").style.display = "flex";
 </script>
 
 </body>
