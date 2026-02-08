@@ -2,33 +2,24 @@
 <html lang="hu">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=720, height=1280, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Project-D Display</title>
+<meta name="viewport" content="width=720, height=720, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Project-D Square Grid</title>
 
 <style>
-* { box-sizing: border-box; touch-action: none; }
+* { box-sizing: border-box; touch-action: none; margin:0; padding:0; }
 
 body {
-    margin: 0;
     background: #000;
     color: #fff;
     font-family: sans-serif;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    min-height: 100vh;
 }
 
-/* FIX kijelző méret */
-#display {
-    width: 720px;
-    height: 1280px;
-    background: black;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Színpaletta */
+/* SZÍNGOMBOK */
 #topBar {
     display: flex;
     flex-wrap: wrap;
@@ -36,6 +27,7 @@ body {
     padding: 6px;
     justify-content: center;
     background: #111;
+    margin-bottom: 10px;
 }
 
 .color-btn {
@@ -43,6 +35,7 @@ body {
     height: 40px;
     border: 2px solid #444;
     border-radius: 4px;
+    cursor: pointer;
 }
 
 .color-btn.active {
@@ -51,16 +44,20 @@ body {
 
 /* GRID */
 #grid {
-    flex: 1;
     display: grid;
     grid-template-columns: repeat(32, 1fr);
     grid-template-rows: repeat(32, 1fr);
+    width: 720px;
+    height: 720px;
+    border: 1px solid #333;
 }
 
-/* CELL GOMB */
 .cell {
     border: 0.2px solid #222;
     background: #000;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
 }
 
 /* ALSÓ VEZÉRLŐ */
@@ -69,6 +66,7 @@ body {
     justify-content: center;
     padding: 10px;
     background: #111;
+    margin-top: 10px;
 }
 
 button {
@@ -77,25 +75,23 @@ button {
     background: #333;
     color: white;
     border: 1px solid #666;
+    cursor: pointer;
 }
 </style>
 </head>
 
 <body>
 
-<div id="display">
+<div id="topBar"></div>
 
-    <div id="topBar"></div>
+<div id="grid"></div>
 
-    <div id="grid"></div>
-
-    <div id="controls">
-        <button onclick="done()">DONE</button>
-    </div>
-
+<div id="controls">
+    <button onclick="done()">DONE</button>
 </div>
 
 <script>
+// SZÍNEK
 const colors = [
     "red","green","blue","yellow","orange","purple",
     "pink","cyan","lime","brown","white","gray",
@@ -109,7 +105,7 @@ let isTouching = false;
 const topBar = document.getElementById("topBar");
 const grid = document.getElementById("grid");
 
-/* SZÍNGOMBOK */
+// Színpaletta
 colors.forEach(c => {
     const btn = document.createElement("div");
     btn.className = "color-btn";
@@ -126,10 +122,9 @@ colors.forEach(c => {
     topBar.appendChild(btn);
 });
 
-/* GRID GOMBOK 32x32 */
+// GRID 32x32 cella
 for (let y = 0; y < 32; y++) {
     for (let x = 0; x < 32; x++) {
-
         const cell = document.createElement("div");
         cell.className = "cell";
         cell.id = `cell-${y}-${x}`;
@@ -161,7 +156,7 @@ for (let y = 0; y < 32; y++) {
 
 window.onpointerup = () => isTouching = false;
 
-/* EXPORT */
+// DONE = letöltés
 function done() {
     let out = "";
     drawingData.forEach((color, coord) => {
