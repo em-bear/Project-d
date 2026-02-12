@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=720, height=720, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Project-D Voice Grid</title>
+
+<style>
+* { box-sizing: border-box; touch-action: none; margin:0; padding:0; }
+
+body {
+    background: #000;
+    color: #fff;
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+}
+
+/* SZÍNGOMBOK */
+#topBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px;
+    justify-content: center;
+    background: #111;
+    margin-bottom: 10px;
+}
+
+.color-btn {
+    width: 40px;
+    height: 40px;
+    border: 2px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.color-btn.active {
+    border-color: #fff;
+}
+
+/* GRID */
+#grid {
+    display: grid;
+    grid-template-columns: repeat(32, 1fr);
+    grid-template-rows: repeat(32, 1fr);
+    width: 720px;
+    height: 720px;
+    border: 1px solid #333;
+}
+
+.cell {
+    border: 0.2px solid #222;
+    background: #000;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+/* ALSÓ VEZÉRLŐ */
+#controls {
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+    background: #111;
+    margin-top: 10px;
+}
+
+button {
+    padding: 12px 25px;
+    font-size: 16px;
+    background: #333;
+    color: white;
+    border: 1px solid #666;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div id="topBar"></div>
+
+<div id="grid"></div>
+
+<div id="controls">
+    <button onclick="done()">DONE</button>
+</div>
+
+<script>
+// ===== SZÍNEK =====
+const colors = [
+    "red","green","blue","yellow","orange","purple",
+    "pink","cyan","lime","brown","white","gray",
+    "navy","teal","magenta"
+];
+
+let selectedColor = colors[0];
+let drawingData = new Map();
+let isTouching = false;
+
+const topBar = document.getElementById("topBar");
+const grid = document.getElementById("grid");
+
+// Színpaletta
+colors.forEach(c => {
+    const btn = document.createElement("div");
+    btn.className = "color-btn";
+    btn.id = "color-" + c;
+    btn.style.background = c;
+    if (c === selectedColor) btn.classList.add("active");
+
+    btn.onclick = () => {
+        document.querySelectorAll(".color-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedColor = c;
+    };
+
+    topBar.appendChild(btn);
+});
+
+// GRID 32x32
+for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.id = `cell-${y}-${x}`;
+
+        const paint = () => {
+            const key = `${x}-${y}`;
+            if (drawingData.has(key)) {
+                drawingData.delete(key);
+                cell.style.background = "#000";
+            } else {
+                drawingData.set(key, selectedColor);
+                cell.style.background = selectedColor;
+            }
+        };
+
+        cell.onpointerdown = e => {
+            isTouching = true;
+            cell.releasePointerCapture(e.pointerId);
+            paint();
+        };
+
+        cell.onpointerenter = () => {
+            if (isTouching) paint();
+        };
+
+        grid.appendChild(cell);
+    }
+}
+
+window.onpointerup = () => isTouching = false;
+
+// ===== DRAW FUNCTIONS =====
+
+function drawPixel(y, x, color) {
+    const cell = document.getElementById(`cell-${y}-${x}`);
+    if (!cell) return;
+    const key = `${x}-${y}`;
+    drawingData.set(key, color);
+    cell.style.background = color;
+}
+
+function drawRow(y, color) {
+    for (let x = 0; x < 32; x++) drawPixel(y, x, color);
+}
+
+function drawCol(x, color) {
+    for (let y = 0; y < 32; y++) drawPixel(y, x, color);
+}
+
+function drawThreeMiddle(color) {
+    const y = 16;
+    [15,16,17].forEach(x => drawPixel(y, x, color));
+}
+
+// ===== VOICE CONTROL =====
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (SpeechRecognition) {
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onresult = e => {
+        const cmd = e.results[e.results.length - 1][0].transcript
+            .toLowerCase()
+            .replace(/[.,!?]/g, "")
+            .trim();
+
+        console.log("🎤", cmd);
+        handleVoice(cmd);
+    };
+
+    recognition.onerror = e => console.error("Speech error:", e);
+
+    recognition.start();
+} else {
+    alert("Speech recognition NOT supported in this browser.");
+}
+
+function parseColor(cmd) {
+    for (const c of colors) {
+        if (cmd.includes(c)) return c;
+    }
+    return "red";
+}
+
+function handleVoice(cmd) {
+    const color = parseColor(cmd);
+
+    if (cmd.includes("top row")) drawRow(0, color);
+    else if (cmd.includes("bottom row")) drawRow(31, color);
+    else if (cmd.includes("left column")) drawCol(0, color);
+    else if (cmd.includes("right column")) drawCol(31, color);
+    else if (cmd.includes("three center")) drawThreeMiddle(color);
+    else if (cmd.includes("pixel")) {
+        const nums = cmd.match(/\d+/g);
+        if (nums && nums.length >= 2) {
+            const y = parseInt(nums[0]);
+            const x = parseInt(nums[1]);
+            if (y >= 0 && y < 32 && x >= 0 && x < 32) {
+                drawPixel(y, x, color);
+            }
+        }
+    }
+    else if (cmd.includes("clear")) {
+        clearGrid();
+    }
+}
+
+// ===== EXTRA =====
+
+function clearGrid() {
+    drawingData.clear();
+    document.querySelectorAll(".cell").forEach(c => c.style.background="#000");
+}
+
+// DONE = letöltés
+function done() {
+    let out = "";
+    drawingData.forEach((color, coord) => {
+        out += `${coord} ${color}\n`;
+    });
+
+    const a = document.createElement("a");
+    a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(out);
+    a.download = "coordinates.txt";
+    a.click();
+}
+</script>
+
+</body>
+</html>
